@@ -1,11 +1,15 @@
-import { RecipeCard } from "@/components/RecipeCard";
+﻿import { RecipeCard } from "@/components/RecipeCard";
 import type { RecipeMatchResult } from "@/lib/types";
 
 interface RecipeResultsProps {
   results: RecipeMatchResult[];
+  onAddMissingToShoppingList?: (ingredients: string[]) => void;
 }
 
-export function RecipeResults({ results }: RecipeResultsProps) {
+export function RecipeResults({
+  results,
+  onAddMissingToShoppingList,
+}: RecipeResultsProps) {
   const canCookResults = results.filter((result) => result.status === "can_cook");
   const almostResults = results.filter((result) => result.status === "almost");
   const visibleResultsCount = canCookResults.length + almostResults.length;
@@ -29,11 +33,13 @@ export function RecipeResults({ results }: RecipeResultsProps) {
         title="Можно приготовить"
         description="Рецепты, где хватает всех основных ингредиентов."
         results={canCookResults}
+        onAddMissingToShoppingList={onAddMissingToShoppingList}
       />
       <RecipeResultsGroup
         title="Почти подходит"
         description="Рецепты, где не хватает одного или двух важных продуктов."
         results={almostResults}
+        onAddMissingToShoppingList={onAddMissingToShoppingList}
       />
     </div>
   );
@@ -43,12 +49,14 @@ interface RecipeResultsGroupProps {
   title: string;
   description: string;
   results: RecipeMatchResult[];
+  onAddMissingToShoppingList?: (ingredients: string[]) => void;
 }
 
 function RecipeResultsGroup({
   title,
   description,
   results,
+  onAddMissingToShoppingList,
 }: RecipeResultsGroupProps) {
   if (results.length === 0) {
     return null;
@@ -65,7 +73,11 @@ function RecipeResultsGroup({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {results.map((result) => (
-          <RecipeCard key={result.recipe.id} result={result} />
+          <RecipeCard
+            key={result.recipe.id}
+            result={result}
+            onAddMissingToShoppingList={onAddMissingToShoppingList}
+          />
         ))}
       </div>
     </section>

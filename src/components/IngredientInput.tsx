@@ -1,24 +1,53 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useState } from "react";
+import { FormEvent, KeyboardEvent, useMemo, useState } from "react";
+
+import { recipes } from "@/data/recipes";
+import { normalizeIngredient } from "@/lib/normalizeIngredient";
 
 interface IngredientInputProps {
   value: string[];
   onChange: (ingredients: string[]) => void;
 }
 
+const ingredientOptions = Array.from(
+  new Set(recipes.flatMap((recipe) => recipe.ingredients.map((item) => item.name))),
+).sort((first, second) => first.localeCompare(second, "ru"));
+
 export function IngredientInput({ value, onChange }: IngredientInputProps) {
   const [inputValue, setInputValue] = useState("");
 
-  function addIngredient() {
-    const ingredient = inputValue.trim().replace(/\s+/g, " ");
+  const suggestions = useMemo(() => {
+    const normalizedInput = normalizeIngredient(inputValue);
+
+    if (!normalizedInput) {
+      return [];
+    }
+
+    return ingredientOptions
+      .filter((ingredient) => {
+        const normalizedIngredient = normalizeIngredient(ingredient);
+        const isAlreadySelected = value.some(
+          (item) => normalizeIngredient(item) === normalizedIngredient,
+        );
+
+        return (
+          !isAlreadySelected && normalizedIngredient.includes(normalizedInput)
+        );
+      })
+      .slice(0, 8);
+  }, [inputValue, value]);
+
+  function addIngredient(nextIngredient = inputValue) {
+    const ingredient = nextIngredient.trim().replace(/\s+/g, " ");
 
     if (!ingredient) {
       return;
     }
 
+    const normalizedIngredient = normalizeIngredient(ingredient);
     const hasIngredient = value.some(
-      (item) => item.toLowerCase() === ingredient.toLowerCase(),
+      (item) => normalizeIngredient(item) === normalizedIngredient,
     );
 
     if (!hasIngredient) {
@@ -47,18 +76,38 @@ export function IngredientInput({ value, onChange }: IngredientInputProps) {
   return (
     <div className="w-full space-y-4">
       <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSubmit}>
-        <label className="sr-only" htmlFor="ingredient-input">
-          Продукт
-        </label>
-        <input
-          id="ingredient-input"
-          type="text"
-          value={inputValue}
-          onChange={(event) => setInputValue(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Например: курица, рис, сыр"
-          className="min-h-12 flex-1 rounded-lg border border-zinc-200 bg-white px-4 text-base text-zinc-950 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-        />
+        <div className="relative flex-1">
+          <label className="sr-only" htmlFor="ingredient-input">
+            Продукт
+          </label>
+          <input
+            id="ingredient-input"
+            type="text"
+            value={inputValue}
+            onChange={(event) => setInputValue(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Например: курица, рис, сыр"
+            className="min-h-12 w-full rounded-lg border border-zinc-200 bg-white px-4 text-base text-zinc-950 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+            autoComplete="off"
+          />
+
+          {suggestions.length > 0 && (
+            <ul className="absolute left-0 right-0 top-full z-10 mt-2 max-h-72 overflow-auto rounded-lg border border-zinc-200 bg-white p-1 shadow-lg">
+              {suggestions.map((suggestion) => (
+                <li key={suggestion}>
+                  <button
+                    type="button"
+                    onClick={() => addIngredient(suggestion)}
+                    className="flex min-h-10 w-full items-center rounded-md px-3 text-left text-sm font-medium text-zinc-800 transition hover:bg-emerald-50 hover:text-emerald-800"
+                  >
+                    {suggestion}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <button
           type="submit"
           disabled={!inputValue.trim()}

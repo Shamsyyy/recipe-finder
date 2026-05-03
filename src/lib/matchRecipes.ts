@@ -1,4 +1,4 @@
-import { normalizeIngredient } from "@/lib/normalizeIngredient";
+﻿import { normalizeIngredient } from "@/lib/normalizeIngredient";
 import type { Recipe, RecipeMatchResult } from "@/lib/types";
 
 const statusPriority: Record<RecipeMatchResult["status"], number> = {
@@ -6,6 +6,15 @@ const statusPriority: Record<RecipeMatchResult["status"], number> = {
   almost: 1,
   not_enough: 2,
 };
+
+const basicIngredientNames = new Set([
+  "соль",
+  "перец",
+  "вода",
+  "масло",
+  "растительное масло",
+  "специи",
+]);
 
 export function matchRecipes(
   userIngredients: string[],
@@ -22,8 +31,12 @@ export function matchRecipes(
       const matchedIngredients: string[] = [];
       const missingEssentialIngredients: string[] = [];
       const missingOptionalIngredients: string[] = [];
+      const requiredIngredients = recipe.ingredients.filter(
+        (ingredient) => !isBasicIngredient(ingredient),
+      );
+      let partialMatchesCount = 0;
 
-      for (const ingredient of recipe.ingredients) {
+      for (const ingredient of requiredIngredients) {
         const normalizedIngredient = normalizeIngredient(ingredient.name);
         const isMatched = normalizedUserIngredients.has(normalizedIngredient);
 
@@ -32,7 +45,9 @@ export function matchRecipes(
           continue;
         }
 
-        if (ingredient.isBasic) {
+        if (hasMatchedSubstitute(ingredient, normalizedUserIngredients)) {
+          matchedIngredients.push(ingredient.name);
+          partialMatchesCount += 1;
           continue;
         }
 
@@ -43,17 +58,21 @@ export function matchRecipes(
         }
       }
 
-      const essentialIngredients = recipe.ingredients.filter(
-        (ingredient) => ingredient.isEssential && !ingredient.isBasic,
-      );
-      const matchedEssentialCount = essentialIngredients.filter((ingredient) =>
-        normalizedUserIngredients.has(normalizeIngredient(ingredient.name)),
-      ).length;
+      const missingIngredientsCount =
+        missingEssentialIngredients.length + missingOptionalIngredients.length;
+      const exactMatchesCount = matchedIngredients.length - partialMatchesCount;
+      const matchedScore = exactMatchesCount + partialMatchesCount * 0.5;
       const score =
-        essentialIngredients.length === 0
-          ? 1
-          : matchedEssentialCount / essentialIngredients.length;
-      const status = getRecipeStatus(missingEssentialIngredients.length);
+        requiredIngredients.length === 0
+          ? 0
+          : matchedScore / requiredIngredients.length;
+      const matchPercent = Math.round(score * 100);
+      const status = getRecipeStatus(
+        matchedIngredients.length,
+        missingIngredientsCount,
+        partialMatchesCount,
+        matchPercent,
+      );
 
       return {
         recipe,
@@ -82,14 +101,42 @@ export function matchRecipes(
     });
 }
 
+function isBasicIngredient(ingredient: Recipe["ingredients"][number]): boolean {
+  return (
+    Boolean(ingredient.isBasic) ||
+    basicIngredientNames.has(normalizeIngredient(ingredient.name))
+  );
+}
+
+function hasMatchedSubstitute(
+  ingredient: Recipe["ingredients"][number],
+  normalizedUserIngredients: Set<string>,
+): boolean {
+  return (
+    ingredient.substitutes?.some((substitute) =>
+      normalizedUserIngredients.has(normalizeIngredient(substitute)),
+    ) ?? false
+  );
+}
+
 function getRecipeStatus(
-  missingEssentialCount: number,
+  matchedIngredientsCount: number,
+  missingIngredientsCount: number,
+  partialMatchesCount: number,
+  matchPercent: number,
 ): RecipeMatchResult["status"] {
-  if (missingEssentialCount === 0) {
+  if (matchedIngredientsCount === 0) {
+    return "not_enough";
+  }
+
+  if (missingIngredientsCount === 0 && partialMatchesCount === 0) {
     return "can_cook";
   }
 
-  if (missingEssentialCount <= 2) {
+  if (
+    missingIngredientsCount + partialMatchesCount <= 2 &&
+    matchPercent >= 50
+  ) {
     return "almost";
   }
 

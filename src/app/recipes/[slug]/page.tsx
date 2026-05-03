@@ -1,12 +1,17 @@
-import Image from "next/image";
+﻿import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AddToShoppingListButton } from "@/components/AddToShoppingListButton";
 import { recipes } from "@/data/recipes";
 import type { Difficulty } from "@/lib/types";
 
 interface RecipePageProps {
   params: Promise<{
     slug: string;
+  }>;
+  searchParams: Promise<{
+    missing?: string | string[];
   }>;
 }
 
@@ -16,17 +21,30 @@ const difficultyLabels: Record<Difficulty, string> = {
   hard: "Сложно",
 };
 
-export default async function RecipePage({ params }: RecipePageProps) {
+export default async function RecipePage({
+  params,
+  searchParams,
+}: RecipePageProps) {
   const { slug } = await params;
+  const { missing } = await searchParams;
   const recipe = recipes.find((item) => item.slug === slug);
 
   if (!recipe) {
     notFound();
   }
 
+  const missingIngredients = parseMissingIngredients(missing);
+
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-950">
       <article className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+        <Link
+          href="/"
+          className="mb-4 inline-flex min-h-11 items-center rounded-lg border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-800 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800"
+        >
+          ← На главную
+        </Link>
+
         <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
           <div className="relative aspect-[16/10] w-full bg-zinc-100 sm:aspect-[16/7]">
             <Image
@@ -83,6 +101,29 @@ export default async function RecipePage({ params }: RecipePageProps) {
                   </dd>
                 </div>
               </dl>
+
+              {missingIngredients.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-3">
+                      <h2 className="text-base font-semibold text-amber-950">
+                        Не хватает для рецепта
+                      </h2>
+                      <ul className="flex flex-wrap gap-2">
+                        {missingIngredients.map((ingredient) => (
+                          <li
+                            key={ingredient}
+                            className="rounded-full bg-white px-3 py-1 text-sm font-medium text-amber-900"
+                          >
+                            {ingredient}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <AddToShoppingListButton ingredients={missingIngredients} />
+                  </div>
+                </div>
+              )}
             </header>
 
             <section className="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
@@ -103,7 +144,7 @@ export default async function RecipePage({ params }: RecipePageProps) {
                         {ingredient.substitutes &&
                           ingredient.substitutes.length > 0 && (
                             <p className="mt-1 text-sm text-zinc-500">
-                              Можно заменить:{" "}
+                              Можно заменить на:{" "}
                               {ingredient.substitutes.join(", ")}
                             </p>
                           )}
@@ -142,4 +183,17 @@ export default async function RecipePage({ params }: RecipePageProps) {
       </article>
     </main>
   );
+}
+
+function parseMissingIngredients(missing?: string | string[]): string[] {
+  const missingValue = Array.isArray(missing) ? missing.join(",") : missing;
+
+  if (!missingValue) {
+    return [];
+  }
+
+  return missingValue
+    .split(",")
+    .map((ingredient) => ingredient.trim())
+    .filter(Boolean);
 }

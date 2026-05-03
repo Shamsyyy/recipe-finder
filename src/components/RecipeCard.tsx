@@ -1,10 +1,11 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 import Link from "next/link";
 
 import type { Difficulty, RecipeMatchResult } from "@/lib/types";
 
 interface RecipeCardProps {
   result: RecipeMatchResult;
+  onAddMissingToShoppingList?: (ingredients: string[]) => void;
 }
 
 const difficultyLabels: Record<Difficulty, string> = {
@@ -25,13 +26,22 @@ const statusClasses: Record<RecipeMatchResult["status"], string> = {
   not_enough: "bg-zinc-100 text-zinc-600 ring-zinc-200",
 };
 
-export function RecipeCard({ result }: RecipeCardProps) {
+export function RecipeCard({
+  result,
+  onAddMissingToShoppingList,
+}: RecipeCardProps) {
   const { recipe } = result;
   const matchPercent = Math.round(result.score * 100);
   const missingIngredients = [
     ...result.missingEssentialIngredients,
     ...result.missingOptionalIngredients,
   ];
+  const recipeHref =
+    missingIngredients.length > 0
+      ? `/recipes/${recipe.slug}?missing=${encodeURIComponent(
+          missingIngredients.join(","),
+        )}`
+      : `/recipes/${recipe.slug}`;
 
   return (
     <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -107,8 +117,18 @@ export function RecipeCard({ result }: RecipeCardProps) {
           )}
         </div>
 
+        {missingIngredients.length > 0 && onAddMissingToShoppingList && (
+          <button
+            type="button"
+            onClick={() => onAddMissingToShoppingList(missingIngredients)}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+          >
+            Добавить недостающее в список покупок
+          </button>
+        )}
+
         <Link
-          href={`/recipes/${recipe.slug}`}
+          href={recipeHref}
           className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
         >
           Открыть рецепт

@@ -1,12 +1,33 @@
-"use client";
+﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
 import { IngredientInput } from "@/components/IngredientInput";
 import { RecipeResults } from "@/components/RecipeResults";
 import { recipes } from "@/data/recipes";
-import { normalizeIngredient } from "@/lib/normalizeIngredient";
 import { matchRecipes } from "@/lib/matchRecipes";
+import { normalizeIngredient } from "@/lib/normalizeIngredient";
+import {
+  mergeShoppingListItems,
+  parseShoppingListSnapshot,
+  SHOPPING_LIST_CHANGED_EVENT,
+  SHOPPING_LIST_STORAGE_KEY,
+  writeShoppingList,
+} from "@/lib/shoppingList";
+import type { RecipeCategory, RecipeMatchResult } from "@/lib/types";
+
+type QuickFilterId =
+  | "breakfast"
+  | "lunch"
+  | "dinner"
+  | "under-15"
+  | "under-30"
+  | "easy";
+
+interface QuickFilter {
+  id: QuickFilterId;
+  label: string;
+}
 
 const popularIngredients = [
   "курица",
@@ -21,12 +42,42 @@ const popularIngredients = [
   "морковь",
 ];
 
+const quickFilters: QuickFilter[] = [
+  { id: "breakfast", label: "Завтрак" },
+  { id: "lunch", label: "Обед" },
+  { id: "dinner", label: "Ужин" },
+  { id: "under-15", label: "До 15 минут" },
+  { id: "under-30", label: "До 30 минут" },
+  { id: "easy", label: "Простые рецепты" },
+];
+
+const categoryFilterIds: Partial<Record<QuickFilterId, RecipeCategory>> = {
+  breakfast: "breakfast",
+  lunch: "lunch",
+  dinner: "dinner",
+};
+
 export default function Home() {
   const [ingredients, setIngredients] = useState<string[]>([]);
+  const [activeFilters, setActiveFilters] = useState<QuickFilterId[]>([]);
+  const shoppingListSnapshot = useSyncExternalStore(
+    subscribeToShoppingList,
+    getShoppingListSnapshot,
+    getServerShoppingListSnapshot,
+  );
+  const shoppingList = useMemo(
+    () => parseShoppingListSnapshot(shoppingListSnapshot),
+    [shoppingListSnapshot],
+  );
 
   const results = useMemo(
     () => matchRecipes(ingredients, recipes),
     [ingredients],
+  );
+
+  const filteredResults = useMemo(
+    () => filterRecipeResults(results, activeFilters),
+    [results, activeFilters],
   );
 
   function addPopularIngredient(ingredient: string) {
@@ -38,6 +89,30 @@ export default function Home() {
     if (!hasIngredient) {
       setIngredients([...ingredients, ingredient]);
     }
+  }
+
+  function toggleFilter(filterId: QuickFilterId) {
+    setActiveFilters((currentFilters) =>
+      currentFilters.includes(filterId)
+        ? currentFilters.filter((id) => id !== filterId)
+        : [...currentFilters, filterId],
+    );
+  }
+
+  function clearFilters() {
+    setActiveFilters([]);
+  }
+
+  function addToShoppingList(items: string[]) {
+    writeShoppingList(mergeShoppingListItems(shoppingList, items));
+  }
+
+  function removeFromShoppingList(itemToRemove: string) {
+    writeShoppingList(shoppingList.filter((item) => item !== itemToRemove));
+  }
+
+  function clearShoppingList() {
+    writeShoppingList([]);
   }
 
   return (
@@ -82,8 +157,101 @@ export default function Home() {
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-zinc-950">
+                Список покупок
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-zinc-600">
+                Недостающие продукты из рецептов сохраняются в браузере.
+              </p>
+            </div>
+            {shoppingList.length > 0 && (
+              <button
+                type="button"
+                onClick={clearShoppingList}
+                className="min-h-9 self-start rounded-lg px-3 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 sm:self-auto"
+              >
+                Очистить
+              </button>
+            )}
+          </div>
+
+          {shoppingList.length > 0 ? (
+            <ul className="mt-4 flex flex-wrap gap-2">
+              {shoppingList.map((item) => (
+                <li key={item}>
+                  <button
+                    type="button"
+                    onClick={() => removeFromShoppingList(item)}
+                    className="inline-flex min-h-9 items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-900 transition hover:bg-amber-100"
+                    aria-label={`Удалить ${item} из списка покупок`}
+                  >
+                    <span>{item}</span>
+                    <span aria-hidden="true" className="text-base leading-none">
+                      x
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+              Пока пусто. Добавьте недостающие продукты из карточки рецепта.
+            </p>
+          )}
+        </div>
+
+        <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-zinc-950">
+                Быстрые фильтры
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-zinc-600">
+                Уточните подбор без перезагрузки страницы.
+              </p>
+            </div>
+            {activeFilters.length > 0 && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="min-h-9 self-start rounded-lg px-3 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 sm:self-auto"
+              >
+                Сбросить
+              </button>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {quickFilters.map((filter) => {
+              const isActive = activeFilters.includes(filter.id);
+
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => toggleFilter(filter.id)}
+                  className={`min-h-10 rounded-full border px-4 text-sm font-semibold transition ${
+                    isActive
+                      ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800"
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  {filter.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {ingredients.length > 0 ? (
-          <RecipeResults results={results} />
+          <RecipeResults
+            results={filteredResults}
+            onAddMissingToShoppingList={addToShoppingList}
+          />
         ) : (
           <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-6 text-center sm:p-8">
             <h2 className="text-xl font-semibold text-zinc-950">
@@ -97,4 +265,64 @@ export default function Home() {
       </section>
     </main>
   );
+}
+
+function subscribeToShoppingList(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(SHOPPING_LIST_CHANGED_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(SHOPPING_LIST_CHANGED_EVENT, onStoreChange);
+  };
+}
+
+function getShoppingListSnapshot() {
+  return window.localStorage.getItem(SHOPPING_LIST_STORAGE_KEY) ?? "[]";
+}
+
+function getServerShoppingListSnapshot() {
+  return "[]";
+}
+
+function filterRecipeResults(
+  results: RecipeMatchResult[],
+  activeFilters: QuickFilterId[],
+): RecipeMatchResult[] {
+  if (activeFilters.length === 0) {
+    return results;
+  }
+
+  return results.filter(({ recipe }) => {
+    const categoryFilters = activeFilters
+      .map((filterId) => categoryFilterIds[filterId])
+      .filter(Boolean);
+
+    if (
+      categoryFilters.length > 0 &&
+      !categoryFilters.includes(recipe.category)
+    ) {
+      return false;
+    }
+
+    if (
+      activeFilters.includes("under-15") &&
+      recipe.cookingTimeMinutes > 15
+    ) {
+      return false;
+    }
+
+    if (
+      activeFilters.includes("under-30") &&
+      recipe.cookingTimeMinutes > 30
+    ) {
+      return false;
+    }
+
+    if (activeFilters.includes("easy") && recipe.difficulty !== "easy") {
+      return false;
+    }
+
+    return true;
+  });
 }
