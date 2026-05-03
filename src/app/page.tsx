@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 
+import { AuthStatus } from "@/components/AuthStatus";
 import { IngredientInput } from "@/components/IngredientInput";
 import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeResults } from "@/components/RecipeResults";
@@ -149,6 +150,10 @@ export default function Home() {
     <main className="min-h-screen bg-zinc-50 text-zinc-950">
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+          <div className="flex justify-end">
+            <AuthStatus />
+          </div>
+
           <div className="max-w-3xl space-y-4">
             <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
               Подбор рецептов по продуктам
