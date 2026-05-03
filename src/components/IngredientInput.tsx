@@ -8,22 +8,35 @@ import {
   useState,
 } from "react";
 
-import { recipes } from "@/data/recipes";
+import { recipes as fallbackRecipes } from "@/data/recipes";
 import { normalizeIngredient } from "@/lib/normalizeIngredient";
+import type { Recipe } from "@/lib/types";
 
 interface IngredientInputProps {
   value: string[];
   onChange: (ingredients: string[]) => void;
+  recipes?: Recipe[];
 }
 
-const ingredientOptions = Array.from(
-  new Set(recipes.flatMap((recipe) => recipe.ingredients.map((item) => item.name))),
-).sort((first, second) => first.localeCompare(second, "ru"));
-
-export function IngredientInput({ value, onChange }: IngredientInputProps) {
+export function IngredientInput({
+  value,
+  onChange,
+  recipes = fallbackRecipes,
+}: IngredientInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(true);
+  const ingredientOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          recipes.flatMap((recipe) =>
+            recipe.ingredients.map((ingredient) => ingredient.name),
+          ),
+        ),
+      ).sort((first, second) => first.localeCompare(second, "ru")),
+    [recipes],
+  );
 
   const suggestions = useMemo(() => {
     const normalizedInput = normalizeIngredient(inputValue);
@@ -44,7 +57,7 @@ export function IngredientInput({ value, onChange }: IngredientInputProps) {
         );
       })
       .slice(0, 8);
-  }, [inputValue, isSuggestionsOpen, value]);
+  }, [ingredientOptions, inputValue, isSuggestionsOpen, value]);
 
   function addIngredient(nextIngredient = inputValue) {
     const ingredient = nextIngredient.trim().replace(/\s+/g, " ");

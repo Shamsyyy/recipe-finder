@@ -10,6 +10,7 @@ interface RecipeCardProps {
   result: RecipeMatchResult;
   hideMatchInfo?: boolean;
   onAddMissingToShoppingList?: (ingredients: string[]) => void;
+  isShoppingListAvailable?: boolean;
 }
 
 const difficultyLabels: Record<Difficulty, string> = {
@@ -34,6 +35,7 @@ export function RecipeCard({
   result,
   hideMatchInfo = false,
   onAddMissingToShoppingList,
+  isShoppingListAvailable = false,
 }: RecipeCardProps) {
   const { isFavorite, toggleFavorite } = useFavoriteRecipes();
   const { recipe } = result;
@@ -152,10 +154,17 @@ export function RecipeCard({
           onAddMissingToShoppingList && (
           <button
             type="button"
-            onClick={() => onAddMissingToShoppingList(missingIngredients)}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+            disabled={!isShoppingListAvailable}
+            onClick={() => {
+              if (isShoppingListAvailable) {
+                onAddMissingToShoppingList(missingIngredients);
+              }
+            }}
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-500"
           >
-            Добавить недостающее в список покупок
+            {isShoppingListAvailable
+              ? "Добавить недостающее в список покупок"
+              : "Войдите, чтобы сохранить список покупок"}
           </button>
           )}
 

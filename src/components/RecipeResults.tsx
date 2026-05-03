@@ -4,11 +4,13 @@ import type { RecipeMatchResult } from "@/lib/types";
 interface RecipeResultsProps {
   results: RecipeMatchResult[];
   onAddMissingToShoppingList?: (ingredients: string[]) => void;
+  isShoppingListAvailable?: boolean;
 }
 
 export function RecipeResults({
   results,
   onAddMissingToShoppingList,
+  isShoppingListAvailable = false,
 }: RecipeResultsProps) {
   const canCookResults = results.filter((result) => result.status === "can_cook");
   const almostResults = results.filter((result) => result.status === "almost");
@@ -34,12 +36,14 @@ export function RecipeResults({
         description="Рецепты, где хватает всех основных ингредиентов."
         results={canCookResults}
         onAddMissingToShoppingList={onAddMissingToShoppingList}
+        isShoppingListAvailable={isShoppingListAvailable}
       />
       <RecipeResultsGroup
         title="Почти подходит"
         description="Рецепты, где не хватает одного или двух важных продуктов."
         results={almostResults}
         onAddMissingToShoppingList={onAddMissingToShoppingList}
+        isShoppingListAvailable={isShoppingListAvailable}
       />
     </div>
   );
@@ -50,6 +54,7 @@ interface RecipeResultsGroupProps {
   description: string;
   results: RecipeMatchResult[];
   onAddMissingToShoppingList?: (ingredients: string[]) => void;
+  isShoppingListAvailable: boolean;
 }
 
 function RecipeResultsGroup({
@@ -57,6 +62,7 @@ function RecipeResultsGroup({
   description,
   results,
   onAddMissingToShoppingList,
+  isShoppingListAvailable,
 }: RecipeResultsGroupProps) {
   if (results.length === 0) {
     return null;
@@ -77,6 +83,7 @@ function RecipeResultsGroup({
             key={result.recipe.id}
             result={result}
             onAddMissingToShoppingList={onAddMissingToShoppingList}
+            isShoppingListAvailable={isShoppingListAvailable}
           />
         ))}
       </div>

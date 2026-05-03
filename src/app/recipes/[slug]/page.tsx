@@ -4,8 +4,10 @@ import { notFound } from "next/navigation";
 
 import { AddToShoppingListButton } from "@/components/AddToShoppingListButton";
 import { FavoriteRecipeButton } from "@/components/FavoriteRecipeButton";
-import { recipes } from "@/data/recipes";
+import { getRecipesFromSupabase } from "@/lib/getRecipesFromSupabase";
 import type { Difficulty } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 interface RecipePageProps {
   params: Promise<{
@@ -28,6 +30,7 @@ export default async function RecipePage({
 }: RecipePageProps) {
   const { slug } = await params;
   const { missing } = await searchParams;
+  const recipes = await getRecipesFromSupabase();
   const recipe = recipes.find((item) => item.slug === slug);
 
   if (!recipe) {
