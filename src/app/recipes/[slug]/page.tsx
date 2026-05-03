@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AddToShoppingListButton } from "@/components/AddToShoppingListButton";
+import { FavoriteRecipeButton } from "@/components/FavoriteRecipeButton";
 import { recipes } from "@/data/recipes";
 import type { Difficulty } from "@/lib/types";
 
@@ -78,6 +79,8 @@ export default async function RecipePage({
                   {recipe.description}
                 </p>
               </div>
+
+              <FavoriteRecipeButton slug={recipe.slug} />
 
               <dl className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-lg bg-zinc-50 p-4">

@@ -463,8 +463,8 @@ export const recipes: Recipe[] = [
       { name: "овсянка", amount: "80 г", isEssential: true },
       { name: "мука", amount: "2 ст. л.", isEssential: false },
       { name: "сахар", amount: "2 ст. л.", isEssential: false },
-      { name: "масло", amount: "50 г", isEssential: true },
-      { name: "корица", amount: "0,5 ч. л.", isEssential: false },
+      { name: "масло", amount: "50 г", isEssential: false, isBasic: true },
+      { name: "корица", amount: "0,5 ч. л.", isEssential: false, isBasic: true },
     ],
     steps: [
       "Нарежьте яблоки кубиками.",

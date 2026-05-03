@@ -1,6 +1,12 @@
-"use client";
+﻿"use client";
 
-import { FormEvent, KeyboardEvent, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  KeyboardEvent,
+  useMemo,
+  useState,
+} from "react";
 
 import { recipes } from "@/data/recipes";
 import { normalizeIngredient } from "@/lib/normalizeIngredient";
@@ -16,11 +22,13 @@ const ingredientOptions = Array.from(
 
 export function IngredientInput({ value, onChange }: IngredientInputProps) {
   const [inputValue, setInputValue] = useState("");
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(true);
 
   const suggestions = useMemo(() => {
     const normalizedInput = normalizeIngredient(inputValue);
 
-    if (!normalizedInput) {
+    if (!normalizedInput || !isSuggestionsOpen) {
       return [];
     }
 
@@ -36,7 +44,7 @@ export function IngredientInput({ value, onChange }: IngredientInputProps) {
         );
       })
       .slice(0, 8);
-  }, [inputValue, value]);
+  }, [inputValue, isSuggestionsOpen, value]);
 
   function addIngredient(nextIngredient = inputValue) {
     const ingredient = nextIngredient.trim().replace(/\s+/g, " ");
@@ -55,21 +63,75 @@ export function IngredientInput({ value, onChange }: IngredientInputProps) {
     }
 
     setInputValue("");
+    setActiveSuggestionIndex(-1);
+    setIsSuggestionsOpen(false);
   }
 
   function removeIngredient(ingredient: string) {
     onChange(value.filter((item) => item !== ingredient));
   }
 
+  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextValue = event.target.value;
+
+    setInputValue(nextValue);
+    setIsSuggestionsOpen(true);
+    setActiveSuggestionIndex(nextValue.trim() ? 0 : -1);
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (activeSuggestionIndex >= 0 && suggestions[activeSuggestionIndex]) {
+      addIngredient(suggestions[activeSuggestionIndex]);
+      return;
+    }
+
     addIngredient();
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown") {
+      if (suggestions.length === 0) {
+        setActiveSuggestionIndex(-1);
+        return;
+      }
+
+      event.preventDefault();
+      setActiveSuggestionIndex((currentIndex) =>
+        currentIndex < suggestions.length - 1 ? currentIndex + 1 : 0,
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      if (suggestions.length === 0) {
+        setActiveSuggestionIndex(-1);
+        return;
+      }
+
+      event.preventDefault();
+      setActiveSuggestionIndex((currentIndex) =>
+        currentIndex > 0 ? currentIndex - 1 : suggestions.length - 1,
+      );
+      return;
+    }
+
     if (event.key === "Enter") {
       event.preventDefault();
+
+      if (activeSuggestionIndex >= 0 && suggestions[activeSuggestionIndex]) {
+        addIngredient(suggestions[activeSuggestionIndex]);
+        return;
+      }
+
       addIngredient();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      setIsSuggestionsOpen(false);
+      setActiveSuggestionIndex(-1);
     }
   }
 
@@ -84,26 +146,45 @@ export function IngredientInput({ value, onChange }: IngredientInputProps) {
             id="ingredient-input"
             type="text"
             value={inputValue}
-            onChange={(event) => setInputValue(event.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Например: курица, рис, сыр"
             className="min-h-12 w-full rounded-lg border border-zinc-200 bg-white px-4 text-base text-zinc-950 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
             autoComplete="off"
+            aria-autocomplete="list"
+            aria-controls="ingredient-suggestions"
+            aria-activedescendant={
+              activeSuggestionIndex >= 0
+                ? `ingredient-suggestion-${activeSuggestionIndex}`
+                : undefined
+            }
           />
 
           {suggestions.length > 0 && (
-            <ul className="absolute left-0 right-0 top-full z-10 mt-2 max-h-72 overflow-auto rounded-lg border border-zinc-200 bg-white p-1 shadow-lg">
-              {suggestions.map((suggestion) => (
-                <li key={suggestion}>
-                  <button
-                    type="button"
-                    onClick={() => addIngredient(suggestion)}
-                    className="flex min-h-10 w-full items-center rounded-md px-3 text-left text-sm font-medium text-zinc-800 transition hover:bg-emerald-50 hover:text-emerald-800"
-                  >
-                    {suggestion}
-                  </button>
-                </li>
-              ))}
+            <ul
+              id="ingredient-suggestions"
+              className="absolute left-0 right-0 top-full z-10 mt-2 max-h-72 overflow-auto rounded-lg border border-zinc-200 bg-white p-1 shadow-lg"
+            >
+              {suggestions.map((suggestion, index) => {
+                const isActive = index === activeSuggestionIndex;
+
+                return (
+                  <li key={suggestion}>
+                    <button
+                      id={`ingredient-suggestion-${index}`}
+                      type="button"
+                      onClick={() => addIngredient(suggestion)}
+                      className={`flex min-h-10 w-full items-center rounded-md px-3 text-left text-sm font-medium transition ${
+                        isActive
+                          ? "bg-emerald-50 text-emerald-800"
+                          : "text-zinc-800 hover:bg-emerald-50 hover:text-emerald-800"
+                      }`}
+                    >
+                      {suggestion}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

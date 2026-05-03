@@ -3,8 +3,10 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 
 import { IngredientInput } from "@/components/IngredientInput";
+import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeResults } from "@/components/RecipeResults";
 import { recipes } from "@/data/recipes";
+import { useFavoriteRecipes } from "@/hooks/useFavoriteRecipes";
 import { matchRecipes } from "@/lib/matchRecipes";
 import { normalizeIngredient } from "@/lib/normalizeIngredient";
 import {
@@ -60,6 +62,7 @@ const categoryFilterIds: Partial<Record<QuickFilterId, RecipeCategory>> = {
 export default function Home() {
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [activeFilters, setActiveFilters] = useState<QuickFilterId[]>([]);
+  const { favoriteSlugs } = useFavoriteRecipes();
   const shoppingListSnapshot = useSyncExternalStore(
     subscribeToShoppingList,
     getShoppingListSnapshot,
@@ -79,6 +82,33 @@ export default function Home() {
     () => filterRecipeResults(results, activeFilters),
     [results, activeFilters],
   );
+  const favoriteRecipes = useMemo(
+    () =>
+      favoriteSlugs
+        .map((slug) => recipes.find((recipe) => recipe.slug === slug))
+        .filter((recipe) => recipe !== undefined),
+    [favoriteSlugs],
+  );
+  const favoriteResults = useMemo(
+    () => matchRecipes(ingredients, favoriteRecipes),
+    [favoriteRecipes, ingredients],
+  );
+  const favoriteResultsWithoutMatchInfo = useMemo(
+    () =>
+      favoriteRecipes.map((recipe) => ({
+        recipe,
+        score: 0,
+        matchedIngredients: [],
+        missingEssentialIngredients: [],
+        missingOptionalIngredients: [],
+        status: "not_enough" as const,
+      })),
+    [favoriteRecipes],
+  );
+  const shouldShowFavoriteMatchInfo = ingredients.length > 0;
+  const visibleFavoriteResults = shouldShowFavoriteMatchInfo
+    ? favoriteResults
+    : favoriteResultsWithoutMatchInfo;
 
   function addPopularIngredient(ingredient: string) {
     const normalizedIngredient = normalizeIngredient(ingredient);
@@ -157,6 +187,30 @@ export default function Home() {
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        {visibleFavoriteResults.length > 0 && (
+          <section className="mb-6 space-y-4">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-zinc-950">
+                Избранное
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-zinc-600">
+                Рецепты, которые вы сохранили в этом браузере.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleFavoriteResults.map((result) => (
+                <RecipeCard
+                  key={result.recipe.slug}
+                  result={result}
+                  hideMatchInfo={!shouldShowFavoriteMatchInfo}
+                  onAddMissingToShoppingList={addToShoppingList}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>

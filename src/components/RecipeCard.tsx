@@ -1,10 +1,14 @@
-﻿import Image from "next/image";
+﻿"use client";
+
+import Image from "next/image";
 import Link from "next/link";
 
+import { useFavoriteRecipes } from "@/hooks/useFavoriteRecipes";
 import type { Difficulty, RecipeMatchResult } from "@/lib/types";
 
 interface RecipeCardProps {
   result: RecipeMatchResult;
+  hideMatchInfo?: boolean;
   onAddMissingToShoppingList?: (ingredients: string[]) => void;
 }
 
@@ -28,9 +32,12 @@ const statusClasses: Record<RecipeMatchResult["status"], string> = {
 
 export function RecipeCard({
   result,
+  hideMatchInfo = false,
   onAddMissingToShoppingList,
 }: RecipeCardProps) {
+  const { isFavorite, toggleFavorite } = useFavoriteRecipes();
   const { recipe } = result;
+  const isRecipeFavorite = isFavorite(recipe.slug);
   const matchPercent = Math.round(result.score * 100);
   const missingIngredients = [
     ...result.missingEssentialIngredients,
@@ -57,14 +64,35 @@ export function RecipeCard({
 
       <div className="space-y-4 p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusClasses[result.status]}`}
+          {!hideMatchInfo && (
+            <>
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusClasses[result.status]}`}
+              >
+                {statusLabels[result.status]}
+              </span>
+              <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-700">
+                {matchPercent}% совпадения
+              </span>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => toggleFavorite(recipe.slug)}
+            className={`ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full border text-lg transition ${
+              isRecipeFavorite
+                ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                : "border-zinc-200 bg-white text-zinc-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+            }`}
+            aria-label={
+              isRecipeFavorite
+                ? `Удалить ${recipe.title} из избранного`
+                : `Добавить ${recipe.title} в избранное`
+            }
+            aria-pressed={isRecipeFavorite}
           >
-            {statusLabels[result.status]}
-          </span>
-          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-700">
-            {matchPercent}% совпадения
-          </span>
+            <span aria-hidden="true">{isRecipeFavorite ? "♥" : "♡"}</span>
+          </button>
         </div>
 
         <div className="space-y-2">
@@ -95,29 +123,33 @@ export function RecipeCard({
           </div>
         </dl>
 
-        <div className="min-h-12">
-          {missingIngredients.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-zinc-950">Не хватает:</p>
-              <ul className="flex flex-wrap gap-2">
-                {missingIngredients.map((ingredient) => (
-                  <li
-                    key={ingredient}
-                    className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800"
-                  >
-                    {ingredient}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
-              Все основные продукты есть
-            </p>
-          )}
-        </div>
+        {!hideMatchInfo && (
+          <div className="min-h-12">
+            {missingIngredients.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-zinc-950">Не хватает:</p>
+                <ul className="flex flex-wrap gap-2">
+                  {missingIngredients.map((ingredient) => (
+                    <li
+                      key={ingredient}
+                      className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800"
+                    >
+                      {ingredient}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                Все основные продукты есть
+              </p>
+            )}
+          </div>
+        )}
 
-        {missingIngredients.length > 0 && onAddMissingToShoppingList && (
+        {!hideMatchInfo &&
+          missingIngredients.length > 0 &&
+          onAddMissingToShoppingList && (
           <button
             type="button"
             onClick={() => onAddMissingToShoppingList(missingIngredients)}
@@ -125,7 +157,7 @@ export function RecipeCard({
           >
             Добавить недостающее в список покупок
           </button>
-        )}
+          )}
 
         <Link
           href={recipeHref}
